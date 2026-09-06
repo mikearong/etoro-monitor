@@ -1,53 +1,262 @@
+今天 上午9:09
+
+Repository permissions → Contents → Read and write
+
+沒有
+已貼上文字 (1).txt
+文件
+OK，GO。另外，將手機API設定，加在API4頁籤後。
+已貼上文字 (1).txt
+文件
+1.調整UI，Github...文字遮擋，將輸入框往後移一點，或將文字縮短，將說明文字放在下一行
+2.log
+UI風格與API1~4頁一樣，不需要外框+標題
+
+對，如果你接受這個前提，那就可以再簡化。
+
+因為目前 Monitor Token 是每次 Runtime／每次手機監控啟動重新產生的一次性 Token，那即使舊 token 留在 GitHub repo history 裡，新的 Runtime 也不會接受它。真正有效的只有「目前這次執行中的 token」。
+
+所以我們可以直接採最簡版：
+
+endpoint.json
+{
+  "status": "online",
+  "url": "https://xxxx.trycloudflare.com",
+  "token": "本次 Runtime Token",
+  "updatedAt": "..."
+}
+
+GitHub Pages 讀到後直接：
+
+https://xxxx.trycloudflare.com/?token=本次Token
+
+手機使用者就完全不用再輸入任何東西。
+
+正常關閉、Crash、End Task、斷電時，也不必特別回寫 offline。因為程式一停：
+
+Quick Tunnel 本身會失效
+舊 token 也只屬於舊 Runtime
+下次程式啟動會建立新的 Tunnel + 新 Token
+程式再把 GitHub endpoint.json 覆蓋成最新值
+
+這樣最符合你想要的「簡單、夠用、唯讀監控」。
+
+唯一要明確接受的是：程式運作期間，任何知道公開 repo 的人理論上都能取得目前有效的唯讀監控 token。 如果這個風險你接受，那就不用再加密、密碼頁、heartbeat、offline 清理。
+
+我建議下一版就直接改成：
+
+固定入口 → 自動讀 url + token → 直接進 Dashboard
+
+並移除現在這個「輸入 Monitor Token」頁。
+
+或是直接寫在github的index.html，一個加密的密碼，打開index.html，先輸入密碼，再跳轉
+
+可以，這反而更符合你現在要的「簡單防護」。
+
+做法可以是：
+
+index.html 先顯示密碼輸入框
+→ 輸入正確密碼
+→ 才去讀 endpoint.json
+→ 取得目前 url + token
+→ 自動跳轉 Dashboard
+
+但要注意一點：如果「加密密碼」和解密邏輯都直接寫在公開的 index.html， technically 仍然可以被看原始碼的人繞過。所以它比較像輕量門檻/避免誤入，不是強安全驗證。
+
+既然你已經接受目前是唯讀監控，這種層級其實可以用，而且比另外做 Worker、Access、Master Password 派生簡單很多。
+
+我建議不要真的做複雜「加密」，而是把密碼做成一個 hash，例如：
+
+!@#
+→ SHA-256
+→ 寫在 index.html
+
+使用者輸入密碼後，瀏覽器對輸入值做 SHA-256，比對 hash；正確才繼續。
+
+這樣至少 index.html 裡不會直接看到：
+
+password = "!@#"
+
+而是只看到一串 hash。
+
+整體會變成：
+
+https://mikearong.github.io/etoro-monitor/
+        ↓
+輸入簡單密碼
+        ↓
+前端 SHA-256 比對
+        ↓
+讀 endpoint.json
+        ↓
+取得 url + token
+        ↓
+直接跳轉 Dashboard
+
+而 endpoint.json 可以直接放：
+
+{
+  "status": "online",
+  "url": "https://xxxx.trycloudflare.com",
+  "token": "runtime-token",
+  "updatedAt": "..."
+}
+
+這樣手機端流程就是一次輸入密碼，之後直接進，不必再去程式拿 Monitor Token。
+
+以你目前的需求，我認為這是最簡單、最少元件、體驗最好的方案。
+
+如果你要，下一步我可以直接幫你：
+
+改 GitHub index.html
+改主程式 endpoint publisher，讓它一起寫 token
+保留現有 MobileMonitor token 驗證機制
+讓 Pages 通過簡單密碼後自動帶 token 進 Dashboard
+
+這樣不需要動 Cloudflare 架構。
+
+GO
+
+完成。這版改成你要的最簡流程：
+
+開固定網址 → 輸入簡單密碼 → GitHub Pages 讀取目前 url + runtime token → 自動帶 Token 進 MobileMonitor Dashboard。
+
+主程式新版：
+
+下載 MobileMonitor v2.2－GitHub 密碼直連版
+
+GitHub Pages 的新版 index.html：
+
+下載新版 index.html
+
+目前我先依你前面的例子，把入口密碼設定成：
+
+!@#
+
+index.html 裡沒有直接存 !@# 明文，只存 SHA-256 hash。不過這仍然只是輕量防護；因為 endpoint.json 是公開 repo 的檔案，懂得直接查看的人仍可以取得目前 Runtime Token。這符合我們目前「唯讀監控、追求簡單方便」的設定。
+
+你現在需要做的只有一件事：到 mikearong/etoro-monitor，把原本的 index.html 全部替換成我提供的新版，Commit 到 main。
+
+然後啟動新的 .ps1。程式成功建立 Tunnel 後，新的 endpoint.json 會自動變成類似：
+
+{
+  "status": "online",
+  "url": "https://xxxx.trycloudflare.com",
+  "token": "本次RuntimeToken",
+  "updatedAt": "..."
+}
+
+之後手機只需要開：
+
+https://mikearong.github.io/etoro-monitor/
+
+輸入：
+
+!@#
+
+就會直接進監控，不必再回桌面程式複製 Monitor Token。
+
+原本 Tunnel 自己的 Token 驗證我沒有移除；GitHub Pages 只是幫你自動把本次 token 帶過去，所以直接亂連 Quick Tunnel 仍然會遇到原本的驗證機制。
+
+PS1 封裝的 Package SHA、Launcher SHA、13 個 Module hash、manifest、ZIP 與 UTF-8 BOM 已重新驗證通過。
+
 <!doctype html>
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>eToro Monitor</title>
+  <title>eToro Mobile Monitor</title>
+  <style>
+    body{font-family:Segoe UI,Arial,sans-serif;background:#f5f7fa;margin:0;padding:28px;color:#1f2937}
+    .card{max-width:520px;margin:9vh auto;background:#fff;border:1px solid #d9dee7;border-radius:12px;padding:26px;box-shadow:0 8px 30px rgba(0,0,0,.06)}
+    h2{margin:0 0 10px}p{color:#475467}
+    input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #aeb7c4;border-radius:8px;font-size:17px}
+    button{margin-top:14px;width:100%;padding:11px;border:0;border-radius:8px;background:#1f6feb;color:#fff;font-size:16px;cursor:pointer}
+    #msg{margin-top:12px;font-size:14px;color:#667085}.err{color:#b42318!important}.ok{color:#067647!important}
+  </style>
 </head>
-
 <body>
-  <h2>eToro Mobile Monitor</h2>
-  <p id="status">正在尋找監控服務...</p>
+  <div class="card">
+    <h2>eToro Mobile Monitor</h2>
+    <p>輸入監控密碼後直接連線。</p>
+    <input id="password" type="password" autocomplete="current-password" placeholder="監控密碼" autofocus>
+    <button id="go">進入監控</button>
+    <div id="msg">等待驗證。</div>
+  </div>
+<script>
+/*
+  輕量唯讀入口防護。
+  預設密碼：!@#
+  index.html 只保存 SHA-256，不保存明文密碼。
+  注意：endpoint.json 是公開資源，此機制不是高強度身分驗證。
+*/
+const PASSWORD_SHA256 = '510fe6a59d8bbd8a7508c56a997d56a07632df77fd934cb556d883c9cb8c3193';
 
-  <script>
-    async function connectMonitor() {
-      try {
-        const response = await fetch(
-          "./endpoint.json?t=" + Date.now(),
-          { cache: "no-store" }
-        );
+const elPassword = document.getElementById('password');
+const elMsg = document.getElementById('msg');
+const btn = document.getElementById('go');
 
-        if (!response.ok) {
-          throw new Error("HTTP " + response.status);
-        }
+function setMsg(text, cls='') {
+  elMsg.textContent = text;
+  elMsg.className = cls;
+}
 
-        const endpoint = await response.json();
+async function sha256Hex(text) {
+  const data = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
 
-        if (
-          endpoint.status === "online" &&
-          typeof endpoint.url === "string" &&
-          endpoint.url.startsWith("https://")
-        ) {
-          document.getElementById("status").textContent =
-            "監控服務已連線，正在進入...";
-
-          window.location.replace(endpoint.url);
-          return;
-        }
-
-        document.getElementById("status").textContent =
-          "監控服務目前離線，稍後將自動重試。";
-
-      } catch (error) {
-        document.getElementById("status").textContent =
-          "暫時無法取得監控服務，稍後將自動重試。";
-      }
-
-      setTimeout(connectMonitor, 10000);
+async function enterMonitor() {
+  btn.disabled = true;
+  try {
+    const value = elPassword.value;
+    if (!value) {
+      setMsg('請輸入監控密碼。','err');
+      return;
     }
 
-    connectMonitor();
-  </script>
+    setMsg('驗證中...');
+    const inputHash = await sha256Hex(value);
+    if (inputHash !== PASSWORD_SHA256) {
+      setMsg('密碼錯誤。','err');
+      elPassword.select();
+      return;
+    }
+
+    setMsg('驗證通過，正在取得目前監控網址...','ok');
+    const response = await fetch('./endpoint.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!response.ok) throw new Error('endpoint HTTP ' + response.status);
+    const endpoint = await response.json();
+
+    if (endpoint.status !== 'online' || typeof endpoint.url !== 'string' || typeof endpoint.token !== 'string' || !endpoint.token) {
+      throw new Error('監控服務目前離線或尚未發布 Token');
+    }
+
+    const target = new URL(endpoint.url);
+    if (target.protocol !== 'https:' || !target.hostname.endsWith('.trycloudflare.com')) {
+      throw new Error('監控網址格式不正確');
+    }
+    target.pathname = '/';
+    target.search = '';
+    target.hash = '';
+    target.searchParams.set('token', endpoint.token);
+
+    setMsg('連線中...','ok');
+    window.location.replace(target.toString());
+  } catch (err) {
+    setMsg('無法連線：' + (err && err.message ? err.message : String(err)), 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+btn.addEventListener('click', enterMonitor);
+elPassword.addEventListener('keydown', e => { if (e.key === 'Enter') enterMonitor(); });
+</script>
 </body>
 </html>
+Etoro-AI-Demo-Trader-v5.0.0-MobileMonitor-v2.2-GitHub密碼直連版.ps1
+程式碼
+index-etoro-monitor-password.html
+HTML
