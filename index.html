@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>eToro Monitor</title>
+</head>
+
+<body>
+  <h2>eToro Mobile Monitor</h2>
+  <p id="status">正在尋找監控服務...</p>
+
+  <script>
+    async function connectMonitor() {
+      try {
+        const response = await fetch(
+          "./endpoint.json?t=" + Date.now(),
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
+        }
+
+        const endpoint = await response.json();
+
+        if (
+          endpoint.status === "online" &&
+          typeof endpoint.url === "string" &&
+          endpoint.url.startsWith("https://")
+        ) {
+          document.getElementById("status").textContent =
+            "監控服務已連線，正在進入...";
+
+          window.location.replace(endpoint.url);
+          return;
+        }
+
+        document.getElementById("status").textContent =
+          "監控服務目前離線，稍後將自動重試。";
+
+      } catch (error) {
+        document.getElementById("status").textContent =
+          "暫時無法取得監控服務，稍後將自動重試。";
+      }
+
+      setTimeout(connectMonitor, 10000);
+    }
+
+    connectMonitor();
+  </script>
+</body>
+</html>
