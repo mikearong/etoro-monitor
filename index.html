@@ -22,12 +22,7 @@
     <div id="msg">等待驗證。</div>
   </div>
 <script>
-/*
-  輕量唯讀入口防護。
-  預設密碼：!@#
-  index.html 只保存 SHA-256，不保存明文密碼。
-  注意：endpoint.json 是公開資源，此機制不是高強度身分驗證。
-*/
+
 const PASSWORD_SHA256 = '510fe6a59d8bbd8a7508c56a997d56a07632df77fd934cb556d883c9cb8c3193';
 
 const elPassword = document.getElementById('password');
