@@ -1,5 +1,5 @@
 {
-  "status": "offline",
-  "url": null,
-  "updatedAt": null
+    "status":  "online",
+    "url":  "https://example-test.trycloudflare.com",
+    "updatedAt":  "2026-09-06T11:46:26.3089222Z"
 }
